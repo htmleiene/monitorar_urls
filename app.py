@@ -190,5 +190,5 @@ if __name__ == '__main__':
     monitor_thread.daemon = True
     monitor_thread.start()
     
-    # Inicia o servidor Flask com SocketIO
-    socketio.run(app, debug=True, host='0.0.0.0', port=5000, use_reloader=False)
+    # ✅ CORREÇÃO: Use esta linha para produção no Render
+    socketio.run(app, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)
