@@ -1,4 +1,4 @@
-// Variáveis para os gráficos
+// Variáveis para os gráficos 
 let statusChart, httpChart;
 let currentPage = 1;
 const itemsPerPage = 10;
@@ -60,9 +60,7 @@ function initCharts(data) {
             plugins: {
                 legend: {
                     position: 'bottom',
-                    labels: {
-                        color: '#e6e6e6'
-                    }
+                    labels: { color: '#e6e6e6' }
                 },
                 tooltip: {
                     callbacks: {
@@ -112,27 +110,15 @@ function initCharts(data) {
             scales: {
                 y: {
                     beginAtZero: true,
-                    ticks: {
-                        color: '#a0a0a0'
-                    },
-                    grid: {
-                        color: '#2d2d42'
-                    }
+                    ticks: { color: '#a0a0a0' },
+                    grid: { color: '#2d2d42' }
                 },
                 x: {
-                    ticks: {
-                        color: '#a0a0a0'
-                    },
-                    grid: {
-                        display: false
-                    }
+                    ticks: { color: '#a0a0a0' },
+                    grid: { display: false }
                 }
             },
-            plugins: {
-                legend: {
-                    display: false
-                }
-            }
+            plugins: { legend: { display: false } }
         }
     });
 }
@@ -155,7 +141,7 @@ function varToRgba(variable, alpha = 1) {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-// Função para atualizar a interface com os dados
+// Atualizar a interface com os dados
 function updateUI(data) {
     document.getElementById('total-links').textContent = data.totalLinks;
     document.getElementById('status-200').textContent = data.status200;
@@ -163,28 +149,28 @@ function updateUI(data) {
     document.getElementById('last-check').textContent = data.lastCheck;
     document.getElementById('update-time').textContent = new Date().toLocaleString();
     
-    // Calcular percentuais
+    // Percentuais
     const successPercent = data.totalLinks > 0 ? Math.round((data.status200 / data.totalLinks) * 100) : 0;
     const errorPercent = data.totalLinks > 0 ? Math.round((data.statusError / data.totalLinks) * 100) : 0;
     
     document.getElementById('status-200-percent').textContent = `${successPercent}%`;
     document.getElementById('status-error-percent').textContent = `${errorPercent}%`;
     
-    // Calcular próxima verificação
+    // Próxima verificação
     const nextCheck = new Date();
     nextCheck.setMinutes(nextCheck.getMinutes() + 5);
     document.getElementById('next-check').textContent = `Próxima: ${nextCheck.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
     
-    // Inicializar gráficos
+    // Gráficos
     initCharts(data);
     
-    // Atualizar tabela
+    // Tabela
     filteredData = [...data.links];
     sortData();
     renderTable();
 }
 
-// Função para renderizar a tabela com paginação
+// Renderizar tabela com paginação
 function renderTable() {
     const tableBody = document.getElementById('links-table-body');
     tableBody.innerHTML = '';
@@ -196,19 +182,17 @@ function renderTable() {
         const link = filteredData[i];
         const row = document.createElement('tr');
         
-        // URL (agora clicável)
         const urlCell = document.createElement('td');
         const urlLink = document.createElement('a');
         urlLink.href = link.url;
-        urlLink.target = '_blank'; // Abre em nova aba
-        urlLink.rel = 'noopener noreferrer'; // Segurança
+        urlLink.target = '_blank';
+        urlLink.rel = 'noopener noreferrer';
         urlLink.textContent = link.url.length > 50 ? link.url.substring(0, 50) + '...' : link.url;
         urlLink.title = link.url;
         urlLink.classList.add('url-link');
         urlCell.appendChild(urlLink);
         row.appendChild(urlCell);
         
-        // Status
         const statusCell = document.createElement('td');
         const statusBadge = document.createElement('span');
         statusBadge.classList.add('status-badge');
@@ -227,19 +211,16 @@ function renderTable() {
         statusCell.appendChild(statusBadge);
         row.appendChild(statusCell);
         
-        // Layout OK
         const layoutCell = document.createElement('td');
         layoutCell.classList.add(link.layoutOk ? 'boolean-true' : 'boolean-false');
         layoutCell.textContent = link.layoutOk ? 'Sim' : 'Não';
         row.appendChild(layoutCell);
         
-        // Padrão OK
         const padraoCell = document.createElement('td');
         padraoCell.classList.add(link.padraoOk ? 'boolean-true' : 'boolean-false');
         padraoCell.textContent = link.padraoOk ? 'Sim' : 'Não';
         row.appendChild(padraoCell);
         
-        // Timestamp
         const timeCell = document.createElement('td');
         timeCell.textContent = link.timestamp;
         row.appendChild(timeCell);
@@ -250,76 +231,51 @@ function renderTable() {
     updatePagination();
 }
 
-// Função para atualizar a paginação
+// Atualizar paginação
 function updatePagination() {
     const totalPages = Math.ceil(filteredData.length / itemsPerPage);
     const paginationContainer = document.getElementById('pagination');
     
-    // Limpar botões de página, exceto os de navegação
     const prevButton = document.getElementById('prev-page');
     const nextButton = document.getElementById('next-page');
     paginationContainer.innerHTML = '';
     paginationContainer.appendChild(prevButton);
     
-    // Adicionar botões de página
     for (let i = 1; i <= totalPages; i++) {
         const pageButton = document.createElement('button');
         pageButton.textContent = i;
-        if (i === currentPage) {
-            pageButton.classList.add('active');
-        }
-        pageButton.addEventListener('click', () => {
-            currentPage = i;
-            renderTable();
-        });
+        if (i === currentPage) pageButton.classList.add('active');
+        pageButton.addEventListener('click', () => { currentPage = i; renderTable(); });
         paginationContainer.appendChild(pageButton);
     }
     
     paginationContainer.appendChild(nextButton);
-    
-    // Atualizar estado dos botões de navegação
     prevButton.disabled = currentPage === 1;
     nextButton.disabled = currentPage === totalPages || totalPages === 0;
 }
 
-// Função para ordenar os dados
+// Ordenar dados
 function sortData() {
     filteredData.sort((a, b) => {
         let valueA, valueB;
-        
         switch (sortedBy) {
-            case 'url':
-                valueA = a.url.toLowerCase();
-                valueB = b.url.toLowerCase();
-                break;
-            case 'status':
-                valueA = a.status;
-                valueB = b.status;
-                break;
-            case 'layout':
-                valueA = a.layoutOk;
-                valueB = b.layoutOk;
-                break;
-            case 'pattern':
-                valueA = a.padraoOk;
-                valueB = b.padraoOk;
-                break;
-            case 'timestamp':
+            case 'url': valueA = a.url.toLowerCase(); valueB = b.url.toLowerCase(); break;
+            case 'status': valueA = a.status; valueB = b.status; break;
+            case 'layout': valueA = a.layoutOk; valueB = b.layoutOk; break;
+            case 'pattern': valueA = a.padraoOk; valueB = b.padraoOk; break;
+            case 'timestamp': 
                 valueA = new Date(a.timestamp.split(' ').reverse().join('-'));
                 valueB = new Date(b.timestamp.split(' ').reverse().join('-'));
                 break;
-            default:
-                valueA = a.url;
-                valueB = b.url;
+            default: valueA = a.url; valueB = b.url;
         }
-        
         if (valueA < valueB) return sortDirection === 'asc' ? -1 : 1;
         if (valueA > valueB) return sortDirection === 'asc' ? 1 : -1;
         return 0;
     });
 }
 
-// Função para adicionar entradas de log
+// Adicionar log
 function addLog(message, type = 'info') {
     const logContainer = document.getElementById('log-container');
     const logEntry = document.createElement('div');
@@ -332,13 +288,11 @@ function addLog(message, type = 'info') {
     logContainer.scrollTop = logContainer.scrollHeight;
 }
 
-// Função para exportar dados
+// Exportar dados
 async function exportData() {
     try {
         const response = await fetch('/api/export');
-        if (!response.ok) {
-            throw new Error('Erro ao exportar dados');
-        }
+        if (!response.ok) throw new Error('Erro ao exportar dados');
         
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
@@ -350,7 +304,6 @@ async function exportData() {
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
-        
         addLog('Dados exportados com sucesso', 'success');
     } catch (error) {
         console.error('Erro ao exportar dados:', error);
@@ -358,13 +311,11 @@ async function exportData() {
     }
 }
 
-// Função para buscar logs
+// Buscar logs
 async function fetchLogs() {
     try {
         const response = await fetch('/api/logs');
-        if (!response.ok) {
-            throw new Error('Erro ao buscar logs');
-        }
+        if (!response.ok) throw new Error('Erro ao buscar logs');
         const data = await response.json();
         
         const logContainer = document.getElementById('log-container');
@@ -376,7 +327,6 @@ async function fetchLogs() {
             logEntry.textContent = log;
             logContainer.appendChild(logEntry);
         });
-        
         logContainer.scrollTop = logContainer.scrollHeight;
     } catch (error) {
         console.error('Erro ao buscar logs:', error);
@@ -386,110 +336,116 @@ async function fetchLogs() {
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', function() {
-    // Atualizar relógio
-    function updateClock() {
-        document.getElementById('current-time').textContent = new Date().toLocaleTimeString();
-    }
+    // Relógio
+    function updateClock() { document.getElementById('current-time').textContent = new Date().toLocaleTimeString(); }
     setInterval(updateClock, 1000);
     updateClock();
     
-    // Carregar dados iniciais
     fetchData();
     addLog('Sistema de monitoramento inicializado', 'info');
     
-    // Configurar botões
+    // Botões
     document.getElementById('btn-refresh').addEventListener('click', function() {
         const icon = this.querySelector('i');
         icon.classList.add('refresh-animation');
         this.classList.add('loading');
         addLog('Atualização manual solicitada', 'info');
-        
-        fetchData().finally(() => {
-            icon.classList.remove('refresh-animation');
-            this.classList.remove('loading');
-        });
+        fetchData().finally(() => { icon.classList.remove('refresh-animation'); this.classList.remove('loading'); });
     });    
     document.getElementById('btn-view-logs').addEventListener('click', function() {
         const logSection = document.getElementById('log-section');
         const isHidden = logSection.style.display === 'none';
-        
         logSection.style.display = isHidden ? 'block' : 'none';
-        
-        if (isHidden) {
-            fetchLogs();
-        }
+        if (isHidden) fetchLogs();
     });
-    
     document.getElementById('btn-clear-logs').addEventListener('click', function() {
         document.getElementById('log-container').innerHTML = '';
         addLog('Logs limpos', 'info');
     });
-    
     document.getElementById('btn-export').addEventListener('click', function() {
         addLog('Exportação de dados solicitada', 'info');
         exportData();
     });
     
-    // Configurar ordenação da tabela
+    // Ordenação
     document.querySelectorAll('.monitor-table th').forEach(header => {
         header.addEventListener('click', () => {
             const newSort = header.getAttribute('data-sort');
-            
-            if (sortedBy === newSort) {
-                sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
-            } else {
-                sortedBy = newSort;
-                sortDirection = 'asc';
-            }
-            
-            // Atualizar ícones de ordenação
-            document.querySelectorAll('.monitor-table th i').forEach(icon => {
-                icon.className = 'fas fa-sort';
-            });
-            
+            if (sortedBy === newSort) sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+            else { sortedBy = newSort; sortDirection = 'asc'; }
+            document.querySelectorAll('.monitor-table th i').forEach(icon => icon.className = 'fas fa-sort');
             const icon = header.querySelector('i');
             icon.className = `fas fa-sort-${sortDirection === 'asc' ? 'up' : 'down'}`;
-            
             sortData();
             renderTable();
         });
     });
     
-    // Configurar filtro de busca
+    // Filtro
     document.getElementById('search-input').addEventListener('input', function(e) {
         const searchTerm = e.target.value.toLowerCase();
-        
-        if (searchTerm) {
-            filteredData = allData.links.filter(link => 
-                link.url.toLowerCase().includes(searchTerm) || 
-                link.status.toString().includes(searchTerm) ||
-                link.timestamp.toLowerCase().includes(searchTerm)
-            );
-        } else {
-            filteredData = [...allData.links];
-        }
-        
+        filteredData = searchTerm ? allData.links.filter(link => 
+            link.url.toLowerCase().includes(searchTerm) || 
+            link.status.toString().includes(searchTerm) ||
+            link.timestamp.toLowerCase().includes(searchTerm)
+        ) : [...allData.links];
         currentPage = 1;
         sortData();
         renderTable();
     });
     
-    // Configurar paginação
-    document.getElementById('prev-page').addEventListener('click', function() {
-        if (currentPage > 1) {
-            currentPage--;
-            renderTable();
-        }
-    });
+    // Paginação
+    document.getElementById('prev-page').addEventListener('click', function() { if (currentPage > 1) { currentPage--; renderTable(); } });
+    document.getElementById('next-page').addEventListener('click', function() { const totalPages = Math.ceil(filteredData.length / itemsPerPage); if (currentPage < totalPages) { currentPage++; renderTable(); } });
     
-    document.getElementById('next-page').addEventListener('click', function() {
-        const totalPages = Math.ceil(filteredData.length / itemsPerPage);
-        if (currentPage < totalPages) {
-            currentPage++;
-            renderTable();
-        }
-    });
-    
-    // Atualizar dados a cada 30 segundos
+    // Atualizar dados a cada 30s
     setInterval(fetchData, 30000);
+
+    // Atualizar logs automaticamente a cada 5s se a seção estiver visível
+    setInterval(() => {
+        const logSection = document.getElementById('log-section');
+        if (logSection.style.display !== 'none') fetchLogs();
+    }, 5000);
+});
+
+
+// Conexão WebSocket
+const socket = io();
+
+// Configurar WebSocket para receber logs em tempo real
+socket.on('log', function(data) {
+    addRealtimeLog(data.message, data.level || 'info');
+});
+
+// Função para adicionar log em tempo real
+function addRealtimeLog(message, level = 'info') {
+    const logContainer = document.getElementById('realtime-log-container');
+    const logEntry = document.createElement('div');
+    logEntry.classList.add('realtime-log-entry', level);
+    
+    const timestamp = new Date().toLocaleTimeString();
+    logEntry.textContent = `[${timestamp}] ${message}`;
+    
+    logContainer.appendChild(logEntry);
+    logContainer.scrollTop = logContainer.scrollHeight;
+}
+
+// Configurar botão para mostrar/ocultar logs
+document.getElementById('btn-toggle-logs').addEventListener('click', function() {
+    const logSection = document.getElementById('realtime-logs-section');
+    const isVisible = logSection.style.display !== 'none';
+    
+    if (isVisible) {
+        logSection.style.display = 'none';
+        this.innerHTML = '<i class="fas fa-terminal"></i> Mostrar Logs';
+    } else {
+        logSection.style.display = 'block';
+        this.innerHTML = '<i class="fas fa-terminal"></i> Ocultar Logs';
+    }
+});
+
+// Configurar botão para limpar logs em tempo real
+document.getElementById('btn-clear-realtime-logs').addEventListener('click', function() {
+    document.getElementById('realtime-log-container').innerHTML = '';
+    addRealtimeLog('Logs limpos', 'info');
 });
