@@ -1,3 +1,4 @@
+//script.js
 // Variáveis para os gráficos 
 let statusChart, httpChart;
 let currentPage = 1;
@@ -12,6 +13,8 @@ let allData = {
     lastCheck: '--:--:--',
     links: []
 };
+
+// ===== FUNÇÕES PRINCIPAIS =====
 
 // Função para buscar dados da API
 async function fetchData() {
@@ -264,8 +267,8 @@ function sortData() {
             case 'layout': valueA = a.layoutOk; valueB = b.layoutOk; break;
             case 'pattern': valueA = a.padraoOk; valueB = b.padraoOk; break;
             case 'timestamp': 
-                valueA = new Date(a.timestamp.split(' ').reverse().join('-'));
-                valueB = new Date(b.timestamp.split(' ').reverse().join('-'));
+                valueA = new Date(a.timestamp.split(' ')[0].split('/').reverse().join('-') + 'T' + a.timestamp.split(' ')[1]);
+                valueB = new Date(b.timestamp.split(' ')[0].split('/').reverse().join('-') + 'T' + b.timestamp.split(' ')[1]);
                 break;
             default: valueA = a.url; valueB = b.url;
         }
@@ -278,6 +281,8 @@ function sortData() {
 // Adicionar log
 function addLog(message, type = 'info') {
     const logContainer = document.getElementById('log-container');
+    if (!logContainer) return;
+    
     const logEntry = document.createElement('div');
     logEntry.classList.add('log-entry', `log-${type}`);
     
@@ -319,6 +324,8 @@ async function fetchLogs() {
         const data = await response.json();
         
         const logContainer = document.getElementById('log-container');
+        if (!logContainer) return;
+        
         logContainer.innerHTML = '';
         
         data.logs.forEach(log => {
@@ -334,13 +341,152 @@ async function fetchLogs() {
     }
 }
 
-// Inicialização
+// ===== FUNÇÕES PARA LOGS EM TEMPO REAL =====
+
+// Conexão WebSocket
+const socket = io();
+
+// Configurar WebSocket para receber logs em tempo real
+socket.on('log', function(data) {
+    addRealtimeLog(data.message, data.level || 'info');
+});
+
+// Função para adicionar log em tempo real
+function addRealtimeLog(message, level = 'info') {
+    const logContainer = document.getElementById('realtime-log-container');
+    if (!logContainer) return;
+    
+    const logEntry = document.createElement('div');
+    logEntry.classList.add('realtime-log-entry', level);
+    
+    const timestamp = new Date().toLocaleTimeString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
+    
+    logEntry.textContent = `[${timestamp}] ${message}`;
+    
+    // Manter TODOS os logs - não remover os antigos
+    logContainer.appendChild(logEntry);
+    logContainer.scrollTop = logContainer.scrollHeight;
+}
+
+// Função para carregar TODOS os logs existentes
+async function loadAllRealtimeLogs() {
+    try {
+        const response = await fetch('/api/realtime-logs');
+        if (!response.ok) throw new Error('Erro ao buscar logs em tempo real');
+        const data = await response.json();
+        
+        const logContainer = document.getElementById('realtime-log-container');
+        if (!logContainer) return;
+        
+        // Limpar apenas se necessário (não há logs)
+        if (data.logs.length > 0) {
+            logContainer.innerHTML = '';
+        }
+        
+        // Adicionar TODOS os logs
+        data.logs.forEach(log => {
+            const logEntry = document.createElement('div');
+            logEntry.classList.add('realtime-log-entry', log.level || 'info');
+            logEntry.textContent = `[${log.timestamp}] ${log.message}`;
+            logContainer.appendChild(logEntry);
+        });
+        
+        logContainer.scrollTop = logContainer.scrollHeight;
+    } catch (error) {
+        console.error('Erro ao carregar logs em tempo real:', error);
+        addRealtimeLog('Erro ao carregar logs: ' + error.message, 'error');
+    }
+}
+
+// No relógio, atualize para:
+function updateClock() { 
+    const now = new Date();
+    document.getElementById('current-time').textContent = now.toLocaleTimeString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    }); 
+}
+
+// Configurar botão para mostrar/ocultar logs em tempo real
+function setupRealtimeLogsToggle() {
+    const toggleButton = document.getElementById('btn-toggle-realtime-logs');
+    const logSection = document.getElementById('realtime-logs-section');
+    
+    if (!toggleButton || !logSection) return;
+    
+    toggleButton.addEventListener('click', function() {
+        const isHidden = logSection.style.display === 'none';
+        
+        if (isHidden) {
+            logSection.style.display = 'block';
+            this.innerHTML = '<i class="fas fa-broadcast-tower"></i> Ocultar Logs em Tempo Real';
+            // Carregar todos os logs quando mostrar a seção
+            loadAllRealtimeLogs();
+        } else {
+            logSection.style.display = 'none';
+            this.innerHTML = '<i class="fas fa-broadcast-tower"></i> Mostrar Logs em Tempo Real';
+        }
+    });
+}
+
+// Configurar botão para limpar logs em tempo real
+function setupClearRealtimeLogs() {
+    const clearButton = document.getElementById('btn-clear-realtime-logs');
+    
+    if (!clearButton) return;
+    
+    clearButton.addEventListener('click', function() {
+        const logContainer = document.getElementById('realtime-log-container');
+        if (logContainer) {
+            logContainer.innerHTML = '';
+            addRealtimeLog('Logs limpos', 'info');
+        }
+    });
+}
+
+// Configurar botão para recarregar TODOS os logs
+function setupLoadAllLogs() {
+    const loadButton = document.getElementById('btn-load-all-logs');
+    
+    if (!loadButton) return;
+    
+    loadButton.addEventListener('click', function() {
+        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Carregando...';
+        loadAllRealtimeLogs().finally(() => {
+            this.innerHTML = '<i class="fas fa-sync"></i> Recarregar Tudo';
+        });
+    });
+}
+
+// Inicializar funcionalidades de logs em tempo real
+function initRealtimeLogs() {
+    setupRealtimeLogsToggle();
+    setupClearRealtimeLogs();
+    setupLoadAllLogs();
+    
+    // Carregar TODOS os logs ao inicializar
+    loadAllRealtimeLogs();
+    
+    // Adicionar mensagem inicial
+    addRealtimeLog('Sistema de logs em tempo real iniciado - Mostrando TODOS os logs', 'info');
+}
+
+// ===== INICIALIZAÇÃO =====
+
 document.addEventListener('DOMContentLoaded', function() {
     // Relógio
-    function updateClock() { document.getElementById('current-time').textContent = new Date().toLocaleTimeString(); }
+    function updateClock() { 
+        document.getElementById('current-time').textContent = new Date().toLocaleTimeString(); 
+    }
     setInterval(updateClock, 1000);
     updateClock();
     
+    // Dados iniciais
     fetchData();
     addLog('Sistema de monitoramento inicializado', 'info');
     
@@ -350,18 +496,24 @@ document.addEventListener('DOMContentLoaded', function() {
         icon.classList.add('refresh-animation');
         this.classList.add('loading');
         addLog('Atualização manual solicitada', 'info');
-        fetchData().finally(() => { icon.classList.remove('refresh-animation'); this.classList.remove('loading'); });
+        fetchData().finally(() => { 
+            icon.classList.remove('refresh-animation'); 
+            this.classList.remove('loading'); 
+        });
     });    
+    
     document.getElementById('btn-view-logs').addEventListener('click', function() {
         const logSection = document.getElementById('log-section');
         const isHidden = logSection.style.display === 'none';
         logSection.style.display = isHidden ? 'block' : 'none';
         if (isHidden) fetchLogs();
     });
+    
     document.getElementById('btn-clear-logs').addEventListener('click', function() {
         document.getElementById('log-container').innerHTML = '';
         addLog('Logs limpos', 'info');
     });
+    
     document.getElementById('btn-export').addEventListener('click', function() {
         addLog('Exportação de dados solicitada', 'info');
         exportData();
@@ -395,8 +547,17 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Paginação
-    document.getElementById('prev-page').addEventListener('click', function() { if (currentPage > 1) { currentPage--; renderTable(); } });
-    document.getElementById('next-page').addEventListener('click', function() { const totalPages = Math.ceil(filteredData.length / itemsPerPage); if (currentPage < totalPages) { currentPage++; renderTable(); } });
+    document.getElementById('prev-page').addEventListener('click', function() { 
+        if (currentPage > 1) { currentPage--; renderTable(); } 
+    });
+    
+    document.getElementById('next-page').addEventListener('click', function() { 
+        const totalPages = Math.ceil(filteredData.length / itemsPerPage); 
+        if (currentPage < totalPages) { currentPage++; renderTable(); } 
+    });
+    
+    // Inicializar logs em tempo real
+    initRealtimeLogs();
     
     // Atualizar dados a cada 30s
     setInterval(fetchData, 30000);
@@ -404,48 +565,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Atualizar logs automaticamente a cada 5s se a seção estiver visível
     setInterval(() => {
         const logSection = document.getElementById('log-section');
-        if (logSection.style.display !== 'none') fetchLogs();
+        if (logSection && logSection.style.display !== 'none') fetchLogs();
     }, 5000);
-});
-
-
-// Conexão WebSocket
-const socket = io();
-
-// Configurar WebSocket para receber logs em tempo real
-socket.on('log', function(data) {
-    addRealtimeLog(data.message, data.level || 'info');
-});
-
-// Função para adicionar log em tempo real
-function addRealtimeLog(message, level = 'info') {
-    const logContainer = document.getElementById('realtime-log-container');
-    const logEntry = document.createElement('div');
-    logEntry.classList.add('realtime-log-entry', level);
-    
-    const timestamp = new Date().toLocaleTimeString();
-    logEntry.textContent = `[${timestamp}] ${message}`;
-    
-    logContainer.appendChild(logEntry);
-    logContainer.scrollTop = logContainer.scrollHeight;
-}
-
-// Configurar botão para mostrar/ocultar logs
-document.getElementById('btn-toggle-logs').addEventListener('click', function() {
-    const logSection = document.getElementById('realtime-logs-section');
-    const isVisible = logSection.style.display !== 'none';
-    
-    if (isVisible) {
-        logSection.style.display = 'none';
-        this.innerHTML = '<i class="fas fa-terminal"></i> Mostrar Logs';
-    } else {
-        logSection.style.display = 'block';
-        this.innerHTML = '<i class="fas fa-terminal"></i> Ocultar Logs';
-    }
-});
-
-// Configurar botão para limpar logs em tempo real
-document.getElementById('btn-clear-realtime-logs').addEventListener('click', function() {
-    document.getElementById('realtime-log-container').innerHTML = '';
-    addRealtimeLog('Logs limpos', 'info');
 });

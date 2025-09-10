@@ -30,40 +30,119 @@
             </button>
             <button id="btn-view-logs">
                 <i class="fas fa-list-alt"></i>
-                Visualizar Logs
+                Logs do Sistema
             </button>
             <button id="btn-export">
                 <i class="fas fa-download"></i>
                 Exportar Dados
             </button>
-            <button id="btn-toggle-logs">
-                <i class="fas fa-terminal"></i>
-                Mostrar Logs
+            <button id="btn-toggle-realtime-logs">
+                <i class="fas fa-broadcast-tower"></i>
+                Mostrar Logs em Tempo Real
             </button>
         </div>
         
         <!-- Caixa de logs em tempo real -->
-        <div class="card" id="realtime-logs-section">
+        <div class="card" id="realtime-logs-section" style="display: none;">
             <div class="card-header">
-                <h2 class="card-title"><i class="fas fa-broadcast-tower"></i> Logs em Tempo Real</h2>
-                <button id="btn-clear-realtime-logs">
-                    <i class="fas fa-trash"></i>
-                    Limpar Logs
-                </button>
+                <h2 class="card-title"><i class="fas fa-broadcast-tower"></i> Logs em Tempo Real (TODOS)</h2>
+                <div>
+                    <button id="btn-load-all-logs">
+                        <i class="fas fa-sync"></i>
+                        Recarregar Tudo
+                    </button>
+                    <button id="btn-clear-realtime-logs">
+                        <i class="fas fa-trash"></i>
+                        Limpar Visualização
+                    </button>
+                </div>
             </div>
             <div class="log-container" id="realtime-log-container">
-                <div class="log-entry log-info">
-                    [Sistema] Conectado ao monitoramento em tempo real
+                <div class="realtime-log-entry info">
+                    [Sistema] Carregando TODOS os logs...
                 </div>
             </div>
         </div>
         
         <div class="dashboard">
-            <!-- ... resto do dashboard ... -->
+            <div class="card stat-card">
+                <div class="stat-label">Total de Links</div>
+                <div class="stat-value" id="total-links">0</div>
+                <div class="stat-label">Monitorados</div>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-label">Links com Status 200</div>
+                <div class="stat-value healthy" id="status-200">0</div>
+                <div class="stat-label" id="status-200-percent">0%</div>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-label">Links com Erros</div>
+                <div class="stat-value error" id="status-error">0</div>
+                <div class="stat-label" id="status-error-percent">0%</div>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-label">Última Verificação</div>
+                <div class="stat-value" id="last-check">--:--:--</div>
+                <div class="stat-label" id="next-check">Próxima: --:--</div>
+            </div>
         </div>
         
-        <!-- ... resto do conteúdo ... -->
+        <div class="charts-container">
+            <div class="card chart-card">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fas fa-chart-pie"></i> Status dos Links</h3>
+                </div>
+                <canvas id="status-chart"></canvas>
+            </div>
+            <div class="card chart-card">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fas fa-chart-bar"></i> Links por Status HTTP</h3>
+                </div>
+                <canvas id="http-chart"></canvas>
+            </div>
+        </div>
         
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title"><i class="fas fa-table"></i> Links Monitorados</h2>
+                <input type="text" id="search-input" placeholder="Filtrar links...">
+            </div>
+            <div class="table-container">
+                <table class="monitor-table">
+                    <thead>
+                        <tr>
+                            <th data-sort="url">URL <i class="fas fa-sort"></i></th>
+                            <th data-sort="status">Status <i class="fas fa-sort"></i></th>
+                            <th data-sort="layout">Layout OK <i class="fas fa-sort"></i></th>
+                            <th data-sort="pattern">Padrão OK <i class="fas fa-sort"></i></th>
+                            <th data-sort="timestamp">Última Verificação <i class="fas fa-sort"></i></th>
+                        </tr>
+                    </thead>
+                    <tbody id="links-table-body">
+                        <!-- Conteúdo dinâmico será inserido aqui -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination" id="pagination">
+                <button id="prev-page"><i class="fas fa-chevron-left"></i></button>
+                <button class="active">1</button>
+                <button id="next-page"><i class="fas fa-chevron-right"></i></button>
+            </div>
+            <div class="last-update">Atualizado em: <span id="update-time">--:--:--</span></div>
+        </div>
+        
+        <div class="card" id="log-section" style="display: none;">
+            <div class="card-header">
+                <h2 class="card-title"><i class="fas fa-terminal"></i> Logs do Sistema</h2>
+                <button id="btn-clear-logs">
+                    <i class="fas fa-trash"></i>
+                    Limpar Logs
+                </button>
+            </div>
+            <div class="log-container" id="log-container">
+                <!-- Logs serão inseridos aqui -->
+            </div>
+        </div>
     </div>
 
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>

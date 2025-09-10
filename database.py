@@ -1,33 +1,27 @@
-# database.py
 import sqlite3
-import json
 from datetime import datetime
-from pathlib import Path
 
-class DatabaseManager:
-    def __init__(self, db_path="monitoring.db"):
-        self.db_path = db_path
+class Database:
+    def __init__(self, db_name='monitoring.db'):
+        self.db_name = db_name
         self.init_db()
+    
+    def get_connection(self):
+        conn = sqlite3.connect(self.db_name)
+        conn.row_factory = sqlite3.Row
+        return conn
     
     def init_db(self):
         """Inicializa o banco de dados com as tabelas necessárias"""
-        with sqlite3.connect(self.db_path) as conn:
+        with self.get_connection() as conn:
             cursor = conn.cursor()
-            
-            # Tabela de configurações
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS settings (
-                    key TEXT PRIMARY KEY,
-                    value TEXT
-                )
-            ''')
             
             # Tabela de links monitorados
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS monitored_links (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    url TEXT UNIQUE,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    url TEXT UNIQUE NOT NULL,
+                    created_at TEXT NOT NULL
                 )
             ''')
             
@@ -35,12 +29,12 @@ class DatabaseManager:
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS check_results (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    link_id INTEGER,
+                    link_id INTEGER NOT NULL,
                     status_code INTEGER,
                     layout_ok BOOLEAN,
                     pattern_ok BOOLEAN,
                     response_time REAL,
-                    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    checked_at TEXT NOT NULL,
                     FOREIGN KEY (link_id) REFERENCES monitored_links (id)
                 )
             ''')
@@ -49,131 +43,114 @@ class DatabaseManager:
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS system_logs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    level TEXT,
-                    message TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    level TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    created_at TEXT NOT NULL
                 )
             ''')
             
             conn.commit()
     
-    def add_monitored_link(self, url):
-        """Adiciona um novo link para monitoramento"""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            try:
-                cursor.execute(
-                    "INSERT OR IGNORE INTO monitored_links (url) VALUES (?)",
-                    (url,)
-                )
-                conn.commit()
-                return cursor.lastrowid
-            except sqlite3.IntegrityError:
-                # URL já existe
-                cursor.execute(
-                    "SELECT id FROM monitored_links WHERE url = ?",
-                    (url,)
-                )
-                return cursor.fetchone()[0] if cursor.fetchone() else None
+    def format_timestamp(self, dt=None):
+        """Formata datetime para dd-mm-yyyy hh:mm"""
+        if dt is None:
+            dt = datetime.now()
+        return dt.strftime("%d-%m-%Y %H:%M")
     
-    def add_check_result(self, link_id, status_code, layout_ok, pattern_ok, response_time=None):
-        """Adiciona um resultado de verificação"""
-        with sqlite3.connect(self.db_path) as conn:
+    def add_monitored_link(self, url):
+        """Adiciona um link à lista de monitorados"""
+        with self.get_connection() as conn:
             cursor = conn.cursor()
+            
+            # Verifica se o link já existe
+            cursor.execute('SELECT id FROM monitored_links WHERE url = ?', (url,))
+            existing = cursor.fetchone()
+            
+            if existing:
+                return existing['id']
+            
+            # Adiciona novo link
+            created_at = self.format_timestamp()
             cursor.execute(
-                '''INSERT INTO check_results 
-                (link_id, status_code, layout_ok, pattern_ok, response_time) 
-                VALUES (?, ?, ?, ?, ?)''',
-                (link_id, status_code, layout_ok, pattern_ok, response_time)
+                'INSERT INTO monitored_links (url, created_at) VALUES (?, ?)',
+                (url, created_at)
             )
-            conn.commit()
+            
             return cursor.lastrowid
+    
+    def add_check_result(self, link_id, status_code, layout_ok, pattern_ok, response_time):
+        """Adiciona um resultado de verificação"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            checked_at = self.format_timestamp()
+            cursor.execute('''
+                INSERT INTO check_results 
+                (link_id, status_code, layout_ok, pattern_ok, response_time, checked_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (link_id, status_code, layout_ok, pattern_ok, response_time, checked_at))
     
     def add_system_log(self, level, message):
         """Adiciona um log do sistema"""
-        with sqlite3.connect(self.db_path) as conn:
+        with self.get_connection() as conn:
             cursor = conn.cursor()
+            
+            created_at = self.format_timestamp()
             cursor.execute(
-                "INSERT INTO system_logs (level, message) VALUES (?, ?)",
-                (level, message)
+                'INSERT INTO system_logs (level, message, created_at) VALUES (?, ?, ?)',
+                (level, message, created_at)
             )
-            conn.commit()
     
-    def get_latest_check_results(self, limit=100):
-        """Obtém os últimos resultados de verificação"""
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
+    def get_dashboard_data(self):
+        """Retorna dados para o dashboard"""
+        with self.get_connection() as conn:
             cursor = conn.cursor()
+            
+            # Total de links
+            cursor.execute('SELECT COUNT(*) as count FROM monitored_links')
+            total_links = cursor.fetchone()['count']
+            
+            # Contagem de status
             cursor.execute('''
-                SELECT 
-                    ml.url,
-                    cr.status_code,
-                    cr.layout_ok,
-                    cr.pattern_ok,
-                    cr.checked_at,
-                    cr.response_time
+                SELECT status_code, COUNT(*) as count 
+                FROM check_results 
+                GROUP BY status_code
+            ''')
+            status_counts = {}
+            for row in cursor.fetchall():
+                status_counts[row['status_code']] = row['count']
+            
+            # Última verificação
+            cursor.execute('''
+                SELECT checked_at 
+                FROM check_results 
+                ORDER BY checked_at DESC 
+                LIMIT 1
+            ''')
+            last_check_row = cursor.fetchone()
+            last_check = last_check_row['checked_at'] if last_check_row else self.format_timestamp()
+            
+            return {
+                'totalLinks': total_links,
+                'statusCounts': status_counts,
+                'lastCheck': last_check
+            }
+    
+    def get_latest_check_results(self, limit=50):
+        """Retorna os últimos resultados de verificação"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                SELECT ml.url, cr.status_code, cr.layout_ok, cr.pattern_ok, 
+                       cr.response_time, cr.checked_at
                 FROM check_results cr
                 JOIN monitored_links ml ON cr.link_id = ml.id
                 ORDER BY cr.checked_at DESC
                 LIMIT ?
             ''', (limit,))
+            
             return cursor.fetchall()
-    
-    def get_link_stats(self, hours=24):
-        """Obtém estatísticas dos links para as últimas X horas"""
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
-            cursor.execute('''
-                SELECT 
-                    ml.url,
-                    COUNT(cr.id) as total_checks,
-                    SUM(CASE WHEN cr.status_code = 200 THEN 1 ELSE 0 END) as success_checks,
-                    AVG(cr.response_time) as avg_response_time,
-                    MIN(cr.checked_at) as first_check,
-                    MAX(cr.checked_at) as last_check
-                FROM monitored_links ml
-                LEFT JOIN check_results cr ON ml.id = cr.link_id 
-                    AND cr.checked_at >= datetime('now', ?)
-                GROUP BY ml.id
-            ''', (f'-{hours} hours',))
-            return cursor.fetchall()
-    
-    def get_dashboard_data(self):
-        """Obtém dados para o dashboard"""
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
-            
-            # Total de links monitorados
-            cursor.execute("SELECT COUNT(*) as count FROM monitored_links")
-            total_links = cursor.fetchone()['count']
-            
-            # Última verificação
-            cursor.execute('''
-                SELECT MAX(checked_at) as last_check 
-                FROM check_results
-            ''')
-            last_check = cursor.fetchone()['last_check']
-            
-            # Status dos links na última verificação
-            cursor.execute('''
-                SELECT 
-                    cr.status_code,
-                    COUNT(*) as count
-                FROM check_results cr
-                WHERE cr.checked_at = (
-                    SELECT MAX(checked_at) FROM check_results
-                )
-                GROUP BY cr.status_code
-            ''')
-            status_counts = cursor.fetchall()
-            
-            return {
-                'totalLinks': total_links,
-                'lastCheck': last_check,
-                'statusCounts': {row['status_code']: row['count'] for row in status_counts}
-            }
 
 # Instância global do banco de dados
-db = DatabaseManager()
+db = Database()
