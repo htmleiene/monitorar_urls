@@ -1,4 +1,3 @@
-import os
 from flask import Flask, render_template, jsonify, send_file
 from flask_socketio import SocketIO, emit
 import threading
@@ -185,30 +184,11 @@ def handle_connect():
     current_time = format_timestamp()
     emit('log', {'message': 'Conectado ao monitoramento em tempo real', 'level': 'info', 'timestamp': current_time})
 
-import os
-import threading
-from datetime import datetime
-
-# ... todo o seu código anterior ...
-
 if __name__ == '__main__':
     # Executar o monitoramento em thread separada
     monitor_thread = threading.Thread(target=run_monitoring)
     monitor_thread.daemon = True
     monitor_thread.start()
     
-    # ✅ CORREÇÃO PARA RENDER - Usar porta dinâmica
-    port = int(os.environ.get('PORT', 5000))
-    host = '0.0.0.0'
-    
-    print(f"✅ Iniciando servidor na porta {port}")
-    
-    # Para produção no Render
-    socketio.run(
-        app, 
-        host=host, 
-        port=port, 
-        debug=False,
-        allow_unsafe_werkzeug=True,
-        use_reloader=False
-    )
+    # Inicia o servidor Flask com SocketIO
+    socketio.run(app, debug=True, host='0.0.0.0', port=5000, use_reloader=False)
