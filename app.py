@@ -5,15 +5,17 @@ import time
 from datetime import datetime
 from database import db
 from automation import executar_monitoramento, coletar_links_selenium, testar_link
-import csv
 from io import BytesIO
 import sqlite3
+import eventlet
+
+# Faz o monkey patch para compatibilidade com WebSockets
+eventlet.monkey_patch()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'sua_chave_secreta_aqui'
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
-# Variável para controlar se o monitoramento está em execução
 monitoring_active = False
 
 def format_timestamp(dt=None):
@@ -29,8 +31,6 @@ def run_monitoring():
     
     while monitoring_active:
         executar_monitoramento()
-        
-        # Espera 5 minutos entre as verificações
         for _ in range(300):  # 300 segundos = 5 minutos
             if not monitoring_active:
                 break
@@ -44,43 +44,30 @@ def dashboard():
 
 @app.route('/api/status')
 def get_status():
-    """Retorna dados para o dashboard - CORRIGIDO"""
     try:
         dashboard_data = db.get_dashboard_data()
-        
-        # Calcula totais CORRETAMENTE
         status_200 = dashboard_data['statusCounts'].get(200, 0)
-        status_error = sum(count for status, count in dashboard_data['statusCounts'].items() 
-                          if status != 200)  # Todos que não são 200 são erros
-        
+        status_error = sum(count for status, count in dashboard_data['statusCounts'].items() if status != 200)
         total_links = dashboard_data['totalLinks']
-        
-        # Percentuais CORRETOS (evitando divisão por zero) - CORRIGIDO: uso de if/else em Python
+
         success_percent = round((status_200 / total_links) * 100) if total_links > 0 else 0
         error_percent = round((status_error / total_links) * 100) if total_links > 0 else 0
-        
-        # Verifica consistência dos dados
+
         if status_200 + status_error != total_links:
-            # Se houver inconsistência, ajusta para não mostrar percentuais errados
             status_200 = min(status_200, total_links)
             status_error = total_links - status_200
-            # Recalcula os percentuais após o ajuste
             success_percent = round((status_200 / total_links) * 100) if total_links > 0 else 0
             error_percent = round((status_error / total_links) * 100) if total_links > 0 else 0
-        
-        # Obtém últimos resultados
+
         latest_results = db.get_latest_check_results(50)
-        
-        links_data = []
-        for row in latest_results:
-            links_data.append({
-                'url': row['url'],
-                'status': row['status_code'],
-                'layoutOk': bool(row['layout_ok']),
-                'padraoOk': bool(row['pattern_ok']),
-                'timestamp': row['checked_at']
-            })
-        
+        links_data = [{
+            'url': row['url'],
+            'status': row['status_code'],
+            'layoutOk': bool(row['layout_ok']),
+            'padraoOk': bool(row['pattern_ok']),
+            'timestamp': row['checked_at']
+        } for row in latest_results]
+
         return jsonify({
             'totalLinks': total_links,
             'status200': status_200,
@@ -95,28 +82,23 @@ def get_status():
 
 @app.route('/api/update')
 def update_status():
-    """Força uma atualização dos dados"""
     socketio.emit('log', {'message': 'Atualização manual iniciada', 'level': 'info'}, namespace='/')
     executar_monitoramento()
     return jsonify({'status': 'success', 'message': 'Dados atualizados'})
 
 @app.route('/api/export')
 def export_data():
-    """Exporta os dados para CSV - CORRIGIDO"""
     try:
         results = db.get_latest_check_results(1000)
-        
-        # Usar BytesIO para arquivo binário
         output = BytesIO()
         output.write('URL,Status,Layout OK,Padrão OK,Tempo Resposta,Verificado Em\n'.encode('utf-8'))
-        
-        # Dados - JÁ ESTÃO NO FORMATO CORRETO
+
         for row in results:
-            csv_line = f'"{row["url"]}",{row["status_code"]},{"Sim" if row["layout_ok"] else "Não"},{"Sim" if row["pattern_ok"] else "Não"},"{row["response_time"]:.2f}s" if row["response_time"] else "N/A","{row["checked_at"]}"\n'
+            response_time = f"{row['response_time']:.2f}s" if row['response_time'] else "N/A"
+            csv_line = f'"{row["url"]}",{row["status_code"]},{"Sim" if row["layout_ok"] else "Não"},{"Sim" if row["pattern_ok"] else "Não"},"{response_time}","{row["checked_at"]}"\n'
             output.write(csv_line.encode('utf-8'))
-        
+
         output.seek(0)
-        
         return send_file(
             output,
             mimetype='text/csv',
@@ -128,7 +110,6 @@ def export_data():
 
 @app.route('/api/logs')
 def get_logs():
-    """Retorna os logs do sistema"""
     try:
         with sqlite3.connect('monitoring.db') as conn:
             conn.row_factory = sqlite3.Row
@@ -140,19 +121,13 @@ def get_logs():
                 LIMIT 100
             ''')
             logs = cursor.fetchall()
-            
-            log_lines = []
-            for log in logs:
-                # Os logs já estão no formato dd-mm-yyyy hh:mm, não precisa converter
-                log_lines.append(f"[{log['created_at']}] {log['level']}: {log['message']}")
-            
+            log_lines = [f"[{log['created_at']}] {log['level']}: {log['message']}" for log in logs]
             return jsonify({'logs': log_lines})
     except Exception as e:
         return jsonify({'logs': [f"Erro ao ler logs: {str(e)}"]})
 
 @app.route('/api/realtime-logs')
 def get_realtime_logs():
-    """Retorna TODOS os logs em tempo real"""
     try:
         with sqlite3.connect('monitoring.db') as conn:
             conn.row_factory = sqlite3.Row
@@ -163,32 +138,19 @@ def get_realtime_logs():
                 ORDER BY created_at ASC
             ''')
             logs = cursor.fetchall()
-            
-            log_list = []
-            for log in logs:
-                # Os logs já estão no formato dd-mm-yyyy hh:mm, não precisa converter
-                log_list.append({
-                    'level': log['level'],
-                    'message': log['message'],
-                    'timestamp': log['created_at']  # Já está no formato correto
-                })
-            
+            log_list = [{'level': log['level'], 'message': log['message'], 'timestamp': log['created_at']} for log in logs]
             return jsonify({'logs': log_list})
     except Exception as e:
-        current_time = format_timestamp()
-        return jsonify({'logs': [{'level': 'error', 'message': f"Erro ao ler logs: {str(e)}", 'timestamp': current_time}]})
+        return jsonify({'logs': [{'level': 'error', 'message': f"Erro ao ler logs: {str(e)}", 'timestamp': format_timestamp()}]})
 
 @socketio.on('connect', namespace='/')
 def handle_connect():
-    """Quando um cliente se conecta via WebSocket"""
-    current_time = format_timestamp()
-    emit('log', {'message': 'Conectado ao monitoramento em tempo real', 'level': 'info', 'timestamp': current_time})
+    emit('log', {'message': 'Conectado ao monitoramento em tempo real', 'level': 'info', 'timestamp': format_timestamp()})
 
 if __name__ == '__main__':
-    # Executar o monitoramento em thread separada
     monitor_thread = threading.Thread(target=run_monitoring)
     monitor_thread.daemon = True
     monitor_thread.start()
-    
-    # Inicia o servidor Flask com SocketIO
-    socketio.run(app, debug=True, host='0.0.0.0', port=5000, use_reloader=False)
+
+    # Usa eventlet para produção
+    socketio.run(app, host='0.0.0.0', port=5000)
