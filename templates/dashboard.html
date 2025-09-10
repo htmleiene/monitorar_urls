@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoramento de Links - Inspirali</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <i class="fas fa-link"></i>
+                Monitoramento de Links - Inspirali
+            </div>
+            <div class="status-indicator">
+                <div class="indicator online"></div>
+                <span>Sistema Online</span>
+                <span id="current-time">--:--:--</span>
+            </div>
+        </header>
+        
+        <div class="controls">
+            <button id="btn-refresh">
+                <i class="fas fa-sync-alt"></i>
+                Atualizar Agora
+            </button>
+            <button id="btn-view-logs">
+                <i class="fas fa-list-alt"></i>
+                Visualizar Logs
+            </button>
+            <button id="btn-export">
+                <i class="fas fa-download"></i>
+                Exportar Dados
+            </button>
+        </div>
+        
+        <div class="dashboard">
+            <div class="card stat-card">
+                <div class="stat-label">Total de Links</div>
+                <div class="stat-value" id="total-links">0</div>
+                <div class="stat-label">Monitorados</div>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-label">Links com Status 200</div>
+                <div class="stat-value healthy" id="status-200">0</div>
+                <div class="stat-label" id="status-200-percent">0%</div>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-label">Links com Erros</div>
+                <div class="stat-value error" id="status-error">0</div>
+                <div class="stat-label" id="status-error-percent">0%</div>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-label">Última Verificação</div>
+                <div class="stat-value" id="last-check">--:--:--</div>
+                <div class="stat-label" id="next-check">Próxima: --:--</div>
+            </div>
+        </div>
+        
+        <div class="charts-container">
+            <div class="card chart-card">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fas fa-chart-pie"></i> Status dos Links</h3>
+                </div>
+                <canvas id="status-chart"></canvas>
+            </div>
+            <div class="card chart-card">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fas fa-chart-bar"></i> Links por Status HTTP</h3>
+                </div>
+                <canvas id="http-chart"></canvas>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title"><i class="fas fa-table"></i> Links Monitorados</h2>
+                <input type="text" id="search-input" placeholder="Filtrar links..." style="background-color: var(--dark-bg); color: var(--text); border: 1px solid #2d2d42; padding: 8px; border-radius: 4px;">
+            </div>
+            <div class="table-container">
+                <table class="monitor-table">
+                    <thead>
+                        <tr>
+                            <th data-sort="url">URL <i class="fas fa-sort"></i></th>
+                            <th data-sort="status">Status <i class="fas fa-sort"></i></th>
+                            <th data-sort="layout">Layout OK <i class="fas fa-sort"></i></th>
+                            <th data-sort="pattern">Padrão OK <i class="fas fa-sort"></i></th>
+                            <th data-sort="timestamp">Última Verificação <i class="fas fa-sort"></i></th>
+                        </tr>
+                    </thead>
+                    <tbody id="links-table-body">
+                        <!-- Conteúdo dinâmico será inserido aqui -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination" id="pagination">
+                <button id="prev-page"><i class="fas fa-chevron-left"></i></button>
+                <button class="active">1</button>
+                <button id="next-page"><i class="fas fa-chevron-right"></i></button>
+            </div>
+            <div class="last-update">Atualizado em: <span id="update-time">--:--:--</span></div>
+        </div>
+        
+        <div class="card" id="log-section" style="display: none;">
+            <div class="card-header">
+                <h2 class="card-title"><i class="fas fa-terminal"></i> Logs do Sistema</h2>
+                <button id="btn-clear-logs">
+                    <i class="fas fa-trash"></i>
+                    Limpar Logs
+                </button>
+            </div>
+            <div class="log-container" id="log-container">
+                <!-- Logs serão inseridos aqui -->
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
