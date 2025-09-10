@@ -185,18 +185,30 @@ def handle_connect():
     current_time = format_timestamp()
     emit('log', {'message': 'Conectado ao monitoramento em tempo real', 'level': 'info', 'timestamp': current_time})
 
+import os
+import threading
+from datetime import datetime
+
+# ... todo o seu código anterior ...
+
 if __name__ == '__main__':
     # Executar o monitoramento em thread separada
     monitor_thread = threading.Thread(target=run_monitoring)
     monitor_thread.daemon = True
     monitor_thread.start()
     
-    # Para produção com Gunicorn
+    # ✅ CORREÇÃO PARA RENDER - Usar porta dinâmica
     port = int(os.environ.get('PORT', 5000))
+    host = '0.0.0.0'
     
-    if os.environ.get('RENDER'):  # Se estiver no Render
-        # O Gunicorn vai cuidar do servidor
-        print(f"✅ Servidor iniciado na porta {port}")
-    else:
-        # Desenvolvimento local
-        socketio.run(app, host='0.0.0.0', port=port, debug=True, allow_unsafe_werkzeug=True)
+    print(f"✅ Iniciando servidor na porta {port}")
+    
+    # Para produção no Render
+    socketio.run(
+        app, 
+        host=host, 
+        port=port, 
+        debug=False,
+        allow_unsafe_werkzeug=True,
+        use_reloader=False
+    )
