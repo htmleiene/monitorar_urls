@@ -6,7 +6,7 @@ from datetime import datetime
 from database import db
 from automation import executar_monitoramento, coletar_links_selenium, testar_link
 import csv
-from io import StringIO
+from io import BytesIO
 import sqlite3
 
 app = Flask(__name__)
@@ -102,35 +102,26 @@ def update_status():
 
 @app.route('/api/export')
 def export_data():
-    """Exporta os dados para CSV"""
+    """Exporta os dados para CSV - CORRIGIDO"""
     try:
         results = db.get_latest_check_results(1000)
         
-        si = StringIO()
-        cw = csv.writer(si)
-        
-        # Cabeçalho
-        cw.writerow(['URL', 'Status', 'Layout OK', 'Padrão OK', 'Tempo Resposta', 'Verificado Em'])
+        # Usar BytesIO para arquivo binário
+        output = BytesIO()
+        output.write('URL,Status,Layout OK,Padrão OK,Tempo Resposta,Verificado Em\n'.encode('utf-8'))
         
         # Dados - JÁ ESTÃO NO FORMATO CORRETO
         for row in results:
-            cw.writerow([
-                row['url'],
-                row['status_code'],
-                'Sim' if row['layout_ok'] else 'Não',
-                'Sim' if row['pattern_ok'] else 'Não',
-                f"{row['response_time']:.2f}s" if row['response_time'] else 'N/A',
-                row['checked_at']  # Já está no formato dd-mm-yyyy hh:mm
-            ])
+            csv_line = f'"{row["url"]}",{row["status_code"]},{"Sim" if row["layout_ok"] else "Não"},{"Sim" if row["pattern_ok"] else "Não"},"{row["response_time"]:.2f}s" if row["response_time"] else "N/A","{row["checked_at"]}"\n'
+            output.write(csv_line.encode('utf-8'))
         
-        output = si.getvalue()
-        si.close()
+        output.seek(0)
         
         return send_file(
-            StringIO(output),
+            output,
             mimetype='text/csv',
             as_attachment=True,
-            download_name=f'monitoramento_links_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+            download_name=f'monitoramento_links_{datetime.now().strftime("%d-%m-%Y_%H-%M-%S")}.csv'
         )
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
