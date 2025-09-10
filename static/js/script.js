@@ -145,6 +145,7 @@ function varToRgba(variable, alpha = 1) {
 }
 
 // Atualizar a interface com os dados
+// Atualizar a interface com os dados - CORRIGIDO
 function updateUI(data) {
     document.getElementById('total-links').textContent = data.totalLinks;
     document.getElementById('status-200').textContent = data.status200;
@@ -152,13 +153,9 @@ function updateUI(data) {
     document.getElementById('last-check').textContent = data.lastCheck;
     document.getElementById('update-time').textContent = new Date().toLocaleString();
     
-    // Percentuais
-    const successPercent = data.totalLinks > 0 ? Math.round((data.status200 / data.totalLinks) * 100) : 0;
-    const errorPercent = data.totalLinks > 0 ? Math.round((data.statusError / data.totalLinks) * 100) : 0;
-    
-    document.getElementById('status-200-percent').textContent = `${successPercent}%`;
-    document.getElementById('status-error-percent').textContent = `${errorPercent}%`;
-    
+    // Percentuais JÁ CALCULADOS no backend
+    document.getElementById('status-200-percent').textContent = `${data.status200Percent}%`;
+    document.getElementById('status-error-percent').textContent = `${data.statusErrorPercent}%`;    
     // Próxima verificação
     const nextCheck = new Date();
     nextCheck.setMinutes(nextCheck.getMinutes() + 5);

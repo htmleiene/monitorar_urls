@@ -102,19 +102,23 @@ class Database:
             )
     
     def get_dashboard_data(self):
-        """Retorna dados para o dashboard"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
             
-            # Total de links
-            cursor.execute('SELECT COUNT(*) as count FROM monitored_links')
+            # Total de links únicos monitorados
+            cursor.execute('SELECT COUNT(DISTINCT id) as count FROM monitored_links')
             total_links = cursor.fetchone()['count']
             
-            # Contagem de status
+            # Contagem de status dos ÚLTIMOS resultados de cada link
             cursor.execute('''
-                SELECT status_code, COUNT(*) as count 
-                FROM check_results 
-                GROUP BY status_code
+                SELECT cr.status_code, COUNT(*) as count 
+                FROM check_results cr
+                INNER JOIN (
+                    SELECT link_id, MAX(id) as max_id 
+                    FROM check_results 
+                    GROUP BY link_id
+                ) latest ON cr.id = latest.max_id
+                GROUP BY cr.status_code
             ''')
             status_counts = {}
             for row in cursor.fetchall():
@@ -124,7 +128,7 @@ class Database:
             cursor.execute('''
                 SELECT checked_at 
                 FROM check_results 
-                ORDER BY checked_at DESC 
+                ORDER BY id DESC 
                 LIMIT 1
             ''')
             last_check_row = cursor.fetchone()
@@ -146,7 +150,7 @@ class Database:
                        cr.response_time, cr.checked_at
                 FROM check_results cr
                 JOIN monitored_links ml ON cr.link_id = ml.id
-                ORDER BY cr.checked_at DESC
+                ORDER BY cr.id DESC
                 LIMIT ?
             ''', (limit,))
             

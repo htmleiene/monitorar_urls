@@ -16,8 +16,10 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 # Variável para controlar se o monitoramento está em execução
 monitoring_active = False
 
-def format_timestamp(dt):
+def format_timestamp(dt=None):
     """Formata datetime para dd-mm-yyyy hh:mm"""
+    if dt is None:
+        dt = datetime.now()
     return dt.strftime("%d-%m-%Y %H:%M")
 
 def run_monitoring():
@@ -42,41 +44,50 @@ def dashboard():
 
 @app.route('/api/status')
 def get_status():
-    """Retorna dados para o dashboard"""
+    """Retorna dados para o dashboard - CORRIGIDO"""
     try:
         dashboard_data = db.get_dashboard_data()
         
-        # Calcula totais
+        # Calcula totais CORRETAMENTE
         status_200 = dashboard_data['statusCounts'].get(200, 0)
         status_error = sum(count for status, count in dashboard_data['statusCounts'].items() 
-                          if status != 200 and status != 'erro')
+                          if status != 200)  # Todos que não são 200 são erros
+        
+        total_links = dashboard_data['totalLinks']
+        
+        # Percentuais CORRETOS (evitando divisão por zero) - CORRIGIDO: uso de if/else em Python
+        success_percent = round((status_200 / total_links) * 100) if total_links > 0 else 0
+        error_percent = round((status_error / total_links) * 100) if total_links > 0 else 0
+        
+        # Verifica consistência dos dados
+        if status_200 + status_error != total_links:
+            # Se houver inconsistência, ajusta para não mostrar percentuais errados
+            status_200 = min(status_200, total_links)
+            status_error = total_links - status_200
+            # Recalcula os percentuais após o ajuste
+            success_percent = round((status_200 / total_links) * 100) if total_links > 0 else 0
+            error_percent = round((status_error / total_links) * 100) if total_links > 0 else 0
         
         # Obtém últimos resultados
         latest_results = db.get_latest_check_results(50)
         
         links_data = []
         for row in latest_results:
-            # Converter timestamp para o formato dd-mm-yyyy hh:mm
-            timestamp = datetime.strptime(row['checked_at'], "%Y-%m-%d %H:%M:%S")
-            formatted_timestamp = format_timestamp(timestamp)
-            
             links_data.append({
                 'url': row['url'],
                 'status': row['status_code'],
                 'layoutOk': bool(row['layout_ok']),
                 'padraoOk': bool(row['pattern_ok']),
-                'timestamp': formatted_timestamp
+                'timestamp': row['checked_at']
             })
         
-        # Formatar lastCheck
-        last_check = datetime.strptime(dashboard_data['lastCheck'], "%Y-%m-%d %H:%M:%S")
-        formatted_last_check = format_timestamp(last_check)
-        
         return jsonify({
-            'totalLinks': dashboard_data['totalLinks'],
+            'totalLinks': total_links,
             'status200': status_200,
             'statusError': status_error,
-            'lastCheck': formatted_last_check,
+            'status200Percent': success_percent,
+            'statusErrorPercent': error_percent,
+            'lastCheck': dashboard_data['lastCheck'],
             'links': links_data
         })
     except Exception as e:
@@ -101,19 +112,15 @@ def export_data():
         # Cabeçalho
         cw.writerow(['URL', 'Status', 'Layout OK', 'Padrão OK', 'Tempo Resposta', 'Verificado Em'])
         
-        # Dados
+        # Dados - JÁ ESTÃO NO FORMATO CORRETO
         for row in results:
-            # Converter timestamp para o formato dd-mm-yyyy hh:mm
-            timestamp = datetime.strptime(row['checked_at'], "%Y-%m-%d %H:%M:%S")
-            formatted_timestamp = format_timestamp(timestamp)
-            
             cw.writerow([
                 row['url'],
                 row['status_code'],
                 'Sim' if row['layout_ok'] else 'Não',
                 'Sim' if row['pattern_ok'] else 'Não',
                 f"{row['response_time']:.2f}s" if row['response_time'] else 'N/A',
-                formatted_timestamp
+                row['checked_at']  # Já está no formato dd-mm-yyyy hh:mm
             ])
         
         output = si.getvalue()
@@ -145,11 +152,8 @@ def get_logs():
             
             log_lines = []
             for log in logs:
-                # Converter timestamp para o formato dd-mm-yyyy hh:mm
-                timestamp = datetime.strptime(log['created_at'], "%Y-%m-%d %H:%M:%S")
-                formatted_timestamp = format_timestamp(timestamp)
-                
-                log_lines.append(f"[{formatted_timestamp}] {log['level']}: {log['message']}")
+                # Os logs já estão no formato dd-mm-yyyy hh:mm, não precisa converter
+                log_lines.append(f"[{log['created_at']}] {log['level']}: {log['message']}")
             
             return jsonify({'logs': log_lines})
     except Exception as e:
@@ -165,31 +169,28 @@ def get_realtime_logs():
             cursor.execute('''
                 SELECT level, message, created_at 
                 FROM system_logs 
-                ORDER BY created_at ASC  -- Ordenar do mais antigo para o mais recente
+                ORDER BY created_at ASC
             ''')
             logs = cursor.fetchall()
             
             log_list = []
             for log in logs:
-                # Converter timestamp para o formato dd-mm-yyyy hh:mm
-                timestamp = datetime.strptime(log['created_at'], "%Y-%m-%d %H:%M:%S")
-                formatted_timestamp = format_timestamp(timestamp)
-                
+                # Os logs já estão no formato dd-mm-yyyy hh:mm, não precisa converter
                 log_list.append({
                     'level': log['level'],
                     'message': log['message'],
-                    'timestamp': formatted_timestamp
+                    'timestamp': log['created_at']  # Já está no formato correto
                 })
             
             return jsonify({'logs': log_list})
     except Exception as e:
-        current_time = format_timestamp(datetime.now())
+        current_time = format_timestamp()
         return jsonify({'logs': [{'level': 'error', 'message': f"Erro ao ler logs: {str(e)}", 'timestamp': current_time}]})
 
 @socketio.on('connect', namespace='/')
 def handle_connect():
     """Quando um cliente se conecta via WebSocket"""
-    current_time = format_timestamp(datetime.now())
+    current_time = format_timestamp()
     emit('log', {'message': 'Conectado ao monitoramento em tempo real', 'level': 'info', 'timestamp': current_time})
 
 if __name__ == '__main__':
