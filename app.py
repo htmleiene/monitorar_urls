@@ -1,3 +1,4 @@
+import os
 from flask import Flask, render_template, jsonify, send_file
 from flask_socketio import SocketIO, emit
 import threading
@@ -190,5 +191,12 @@ if __name__ == '__main__':
     monitor_thread.daemon = True
     monitor_thread.start()
     
-    # ✅ CORREÇÃO: Use esta linha para produção no Render
-    socketio.run(app, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)
+    # Para produção com Gunicorn
+    port = int(os.environ.get('PORT', 5000))
+    
+    if os.environ.get('RENDER'):  # Se estiver no Render
+        # O Gunicorn vai cuidar do servidor
+        print(f"✅ Servidor iniciado na porta {port}")
+    else:
+        # Desenvolvimento local
+        socketio.run(app, host='0.0.0.0', port=port, debug=True, allow_unsafe_werkzeug=True)
