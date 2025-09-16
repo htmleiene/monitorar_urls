@@ -1,21 +1,34 @@
-from flask import Flask, render_template, jsonify
-from database import db  # se quiser manter o dashboard
-# import outras libs só se precisar do front
+from flask import Flask, render_template
+import csv
 
 app = Flask(__name__)
 
-@app.route('/')
-def dashboard():
-    return render_template('dashboard.html')
-
-@app.route('/api/status')
-def get_status():
+def ler_log_links():
+    links = []
     try:
-        dashboard_data = db.get_dashboard_data()
-        return jsonify(dashboard_data)
+        with open("log_links.txt", "r", encoding="utf-8") as f:
+            reader = csv.reader(f, delimiter="|")
+            next(reader)  # pular cabeçalho se tiver
+            for row in reader:
+                if len(row) < 5:
+                    continue
+                link = {
+                    "url": row[0].strip(),
+                    "timestamp": row[1].strip(),
+                    "status": row[2].strip(),
+                    "layout_ok": row[3].strip().lower() in ["true", "sim"],
+                    "pattern_ok": row[4].strip().lower() in ["true", "sim"]
+                }
+                links.append(link)
     except Exception as e:
-        return jsonify({'error': str(e)})
+        print("Erro ao ler log_links.txt:", e)
+    return links
 
-if __name__ == '__main__':
-    # apenas front rodando
-    app.run(host='0.0.0.0', port=5000, debug=True)
+@app.route("/")
+def dashboard():
+    links = ler_log_links()
+    return render_template("dashboard.html", links=links)
+
+if __name__ == "__main__":
+    import os
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
