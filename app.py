@@ -11,19 +11,23 @@ from database import db
 from automation import executar_monitoramento
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'sua_chave_secreta_aqui'
+app.config['SECRET_KEY'] = '.env'
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Variável para controlar se o monitoramento está em execução
 monitoring_active = False
-
+import pytz
+from datetime import datetime
 
 def format_timestamp(dt=None):
-    """Formata datetime para dd-mm-yyyy hh:mm"""
+    """Formata datetime para dd-mm-yyyy hh:mm no horário de São Paulo"""
+    saopaulo_tz = pytz.timezone("America/Sao_Paulo")
     if dt is None:
-        dt = datetime.now()
+        dt = datetime.now(saopaulo_tz)
+    else:
+        # se dt já existe, converte para horário de São Paulo
+        dt = dt.astimezone(saopaulo_tz)
     return dt.strftime("%d-%m-%Y %H:%M")
-
 
 def run_monitoring():
     """Executa o monitoramento em loop em segundo plano"""
