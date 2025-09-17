@@ -1,4 +1,5 @@
 import sqlite3
+import pytz
 from datetime import datetime
 
 class Database:
@@ -52,9 +53,12 @@ class Database:
             conn.commit()
     
     def format_timestamp(self, dt=None):
-        """Formata datetime para dd-mm-yyyy hh:mm"""
+        """Formata datetime para dd-mm-yyyy hh:mm no horário de São Paulo"""
+        saopaulo_tz = pytz.timezone("America/Sao_Paulo")
         if dt is None:
-            dt = datetime.now()
+            dt = datetime.now(saopaulo_tz)
+        else:
+            dt = dt.astimezone(saopaulo_tz)
         return dt.strftime("%d-%m-%Y %H:%M")
     
     def add_monitored_link(self, url):
