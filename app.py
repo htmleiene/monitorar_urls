@@ -19,7 +19,7 @@ urls = [
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('dashboard.html')
 
 def monitorar_links():
     """Função que monitora links e envia logs via Socket.IO"""
