@@ -564,4 +564,18 @@ document.addEventListener('DOMContentLoaded', function() {
         const logSection = document.getElementById('log-section');
         if (logSection && logSection.style.display !== 'none') fetchLogs();
     }, 5000);
+
+    document.getElementById("run-monitoring-btn").addEventListener("click", () => {
+    fetch("/api/update")
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === "success") {
+                alert("Monitoramento executado com sucesso!");
+            } else {
+                alert("Erro ao executar monitoramento: " + data.message);
+            }
+        })
+        .catch(err => alert("Erro de conexão: " + err));
+});
+
 });
